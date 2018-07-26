@@ -37,9 +37,7 @@ class Processes
     {
         foreach ($this->processes as $key => $process) {
             if (null !== $process && $process->isTerminated()) {
-                if ($addToCompletedQueue) {
-                    $this->moveToCompletedProcesses($key, $process);
-                }
+                $this->handleTerminatedProcess($key, $process, $addToCompletedQueue);
                 $this->processes[$key] = null;
                 $this->startTimes[$key] = null;
             }
@@ -63,7 +61,7 @@ class Processes
         $this->cleanUP();
         if (isset($this->processes[$key]) && null !== $this->processes[$key]) {
             $this->assertTerminated($key);
-            $this->moveToCompletedProcesses($key, $this->processes[$key]);
+            $this->handleTerminatedProcess($key, $this->processes[$key]);
             $this->processes[$key] = null;
         }
 
@@ -200,8 +198,9 @@ class Processes
     /**
      * @param $key
      * @param Process $process
+     * @param bool $addToCompletedQueue
      */
-    private function moveToCompletedProcesses($key, Process $process)
+    private function handleTerminatedProcess($key, Process $process, $addToCompletedQueue = true)
     {
         $env = $process->getEnv();
         $suite = $env[EnvCommandCreator::ENV_TEST_ARGUMENT];
@@ -215,14 +214,16 @@ class Processes
             $this->errorBuffer[$suite] .= $process->getErrorOutput();
         }
 
-        $this->totalBuffer[] = new Report(
-            $suite,
-            $process->isSuccessful(),
-            microtime(true) - $this->startTimes[$key],
-            $number,
-            isset($this->errorBuffer[$suite]) ? $this->errorBuffer[$suite] : null,
-            $numberOnThread
-        );
+        if ($addToCompletedQueue) {
+            $this->totalBuffer[] = new Report(
+                $suite,
+                $process->isSuccessful(),
+                microtime(true) - $this->startTimes[$key],
+                $number,
+                isset($this->errorBuffer[$suite]) ? $this->errorBuffer[$suite] : null,
+                $numberOnThread
+            );
+        }
     }
 
     /**
